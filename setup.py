@@ -13,4 +13,5 @@ setup(
         "rich",
     ],
     packages=find_packages(),
+    entry_points={"console_scripts": ["meshfn = meshfn.launcher.runner:main"]},
 )

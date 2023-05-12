@@ -3,7 +3,7 @@ import functools
 from meshfn.logging.logger import DistributedLogger, make_logger
 
 
-@functools.lru_cache
+@functools.lru_cache(maxsize=128)
 def get_logger(
     parallel_context=None,
     name="main",

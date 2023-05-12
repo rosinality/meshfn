@@ -1,4 +1,4 @@
-from meshfn.distributed.parallel_context import ParallelContext
+from meshfn.distributed.parallel_context import ParallelContext, ParallelContext
 from meshfn.distributed.parallel_mode import ParallelMode
 from meshfn.distributed.seed.seed_manager import SEEDS
 from meshfn.distributed.collectives import broadcast, broadcast_rank0

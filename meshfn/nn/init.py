@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 import math
 import warnings
 
@@ -6,80 +5,28 @@ import torch
 from torch import nn
 
 
-@contextmanager
-def init_empty_weights(include_buffers: bool = False):
-    with init_on_device(torch.device("meta"), include_buffers=include_buffers) as f:
-        yield f
+def calc_fan_in_and_out(shape):
+    dimensions = len(shape)
 
+    if dimensions < 2:
+        raise ValueError(
+            "fan in and fan out can not be computed for tensor with fewer than 2 dimensions"
+        )
 
-@contextmanager
-def init_on_device(device: torch.device, include_buffers: bool = False):
-    orig_register_parameter = nn.Module.register_parameter
+    num_input_fmaps = shape[1]
+    num_output_fmaps = shape[0]
+    receptive_field_size = 1
 
-    if include_buffers:
-        orig_register_buffer = nn.Module.register_buffer
+    if len(shape) > 2:
+        # math.prod is not always available, accumulate the product manually
+        # we could use functools.reduce but that is not supported by TorchScript
+        for s in shape[2:]:
+            receptive_field_size *= s
 
-    def register_parameter(module, name, param):
-        orig_register_parameter(module, name, param)
+    fan_in = num_input_fmaps * receptive_field_size
+    fan_out = num_output_fmaps * receptive_field_size
 
-        if param is not None:
-            param_cls = type(module._parameters[name])
-            kwargs = module._parameters[name].__dict__
-            module._parameters[name] = param_cls(
-                module._parameters[name].to(device), **kwargs
-            )
-
-    def register_buffer(module, name, buffer):
-        orig_register_buffer(module, name, buffer)
-
-        if buffer is not None:
-            module._buffers[name] = module._buffers[name].to(device)
-
-    tensor_constructors_to_patch = {}
-
-    if include_buffers:
-        tensor_constructors_to_patch = {
-            torch_function_name: getattr(torch, torch_function_name)
-            for torch_function_name in ["empty", "zeros", "ones", "full"]
-        }
-
-    def patch_tensor_constructor(fn):
-        def wrapper(*args, **kwargs):
-            kwargs["device"] = device
-
-            return fn(*args, **kwargs)
-
-        return wrapper
-
-    try:
-        nn.Module.register_parameter = register_parameter
-
-        if include_buffers:
-            nn.Module.register_buffer = register_buffer
-
-        for (
-            torch_function_name,
-            orig_torch_function,
-        ) in tensor_constructors_to_patch.items():
-            setattr(
-                torch,
-                torch_function_name,
-                patch_tensor_constructor(orig_torch_function),
-            )
-
-        yield
-
-    finally:
-        nn.Module.register_parameter = orig_register_parameter
-
-        if include_buffers:
-            nn.Module.register_buffer = orig_register_buffer
-
-        for (
-            torch_function_name,
-            orig_torch_function,
-        ) in tensor_constructors_to_patch.items():
-            setattr(torch, torch_function_name, orig_torch_function)
+    return fan_in, fan_out
 
 
 def empty():

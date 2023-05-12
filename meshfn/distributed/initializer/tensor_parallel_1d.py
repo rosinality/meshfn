@@ -10,8 +10,8 @@ class TensorParallel1DInitializer(TensorParallelInitializer):
 
         self.n_tensor_parallel_1d_group = self.world_size // self.tensor_parallel_size
 
-    def init_process_group(self):
-        group = super().init_process_group()
+    def init_process_group(self, init_group=True):
+        group = super().init_process_group(init_group)
         group["mode"] = ParallelMode.TENSOR_1D
 
         return group

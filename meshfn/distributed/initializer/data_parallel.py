@@ -8,26 +8,31 @@ class DataParallelInitializer(ProcessGroupInitializer):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.n_data_parallel_group = self.world_size // self.data_parallel_size
+        self.n_data_parallel_context = self.world_size // self.data_parallel_size
 
-    def init_process_group(self):
+    def init_process_group(self, init_group=True):
         local_rank = None
         ranks = None
         process_group = None
         cpu_group = None
         world_size = None
 
-        for i in range(self.n_data_parallel_group):
+        group = None
+        group_cpu = None
+
+        for i in range(self.n_data_parallel_context):
             ranks_list = [
-                i + j * self.n_data_parallel_group
+                i + j * self.n_data_parallel_context
                 for j in range(self.data_parallel_size)
             ]
-            group = dist.new_group(ranks_list)
-            group_cpu = (
-                dist.new_group(ranks_list, backend="gloo")
-                if dist.get_backend() != "gloo"
-                else group
-            )
+
+            if init_group:
+                group = dist.new_group(ranks_list)
+                group_cpu = (
+                    dist.new_group(ranks_list, backend="gloo")
+                    if dist.get_backend() != "gloo"
+                    else group
+                )
 
             if self.rank in ranks_list:
                 local_rank = ranks_list.index(self.rank)

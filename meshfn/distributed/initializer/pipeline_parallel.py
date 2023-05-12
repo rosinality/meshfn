@@ -11,8 +11,11 @@ class PipelineParallelInitializer(ProcessGroupInitializer):
         self.data_group_size = self.world_size // self.data_parallel_size
         self.pipeline_stage_size = self.data_group_size // self.pipeline_parallel_size
 
-    def init_process_group(self):
+    def init_process_group(self, init_group=True):
         dist_settings = []
+
+        pipe_group = None
+        group_cpu = None
 
         for i in range(self.data_parallel_size):
             for j in range(self.pipeline_stage_size):
@@ -23,12 +26,14 @@ class PipelineParallelInitializer(ProcessGroupInitializer):
                         self.pipeline_stage_size,
                     )
                 )
-                pipe_group = dist.new_group(pipe_ranks)
-                group_cpu = (
-                    dist.new_group(pipe_ranks, backend="gloo")
-                    if dist.get_backend() != "gloo"
-                    else pipe_group
-                )
+
+                if init_group:
+                    pipe_group = dist.new_group(pipe_ranks)
+                    group_cpu = (
+                        dist.new_group(pipe_ranks, backend="gloo")
+                        if dist.get_backend() != "gloo"
+                        else pipe_group
+                    )
 
                 if self.rank in pipe_ranks:
                     local_rank = pipe_ranks.index(self.rank)
